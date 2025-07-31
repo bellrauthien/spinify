@@ -26,7 +26,7 @@ const userSongCounts = {};
 const spotifyApi = new SpotifyWebApi({
   clientId: process.env.SPOTIFY_CLIENT_ID,
   clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-  redirectUri: process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/callback'
+  redirectUri: process.env.SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:8888/callback'
 });
 
 // Store user tokens
@@ -102,7 +102,7 @@ app.get('/api/auth/spotify', (req, res) => {
 });
 
 // Callback from Spotify auth
-app.get('/api/auth/callback', async (req, res) => {
+app.get('/callback', async (req, res) => {
   const { code, state } = req.query;
   
   if (!code) {
@@ -453,3 +453,45 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Create a separate server for Spotify callback
+if (PORT !== 8888) {
+  const callbackApp = express();
+  callbackApp.use(cors());
+  
+  // Handle Spotify callback
+  callbackApp.get('/callback', async (req, res) => {
+    const { code, state } = req.query;
+    
+    if (!code) {
+      return res.status(400).send('Authorization code is required');
+    }
+    
+    try {
+      // Exchange code for access token
+      const data = await spotifyApi.authorizationCodeGrant(code);
+      
+      // Get user profile to use as ID
+      spotifyApi.setAccessToken(data.body['access_token']);
+      const userProfile = await spotifyApi.getMe();
+      const userId = userProfile.body.id;
+      
+      // Store tokens
+      userTokens[userId] = {
+        accessToken: data.body['access_token'],
+        refreshToken: data.body['refresh_token'],
+        expiresAt: Date.now() + (data.body['expires_in'] * 1000)
+      };
+      
+      // Redirect to frontend with user ID
+      res.redirect(`http://localhost:3000/auth-success?userId=${userId}`);
+    } catch (error) {
+      console.error('Error during authorization code exchange:', error);
+      res.redirect('http://localhost:3000/auth-error');
+    }
+  });
+  
+  callbackApp.listen(8888, () => {
+    console.log('Spotify callback server running on port 8888');
+  });
+}
