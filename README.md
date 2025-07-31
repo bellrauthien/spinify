@@ -60,7 +60,17 @@ npm install
 
 ### 3. Configure environment variables
 
-Create a `.env` file in the backend directory with the following variables:
+Create a `.env` file in the backend directory by copying the example template:
+
+```bash
+# Copy the example environment file
+cp backend/.env.example backend/.env
+
+# On Windows:
+copy backend\.env.example backend\.env
+```
+
+Then edit the `.env` file to add your Spotify API credentials:
 
 ```
 PORT=5000
@@ -73,6 +83,9 @@ To get your Spotify API credentials:
 1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/)
 2. Create a new application
 3. Copy the Client ID and Client Secret to your `.env` file
+
+**IMPORTANT: Security Note**
+Never commit your `.env` file containing real credentials to version control. The `.gitignore` file is configured to exclude this file, but always double-check before committing.
 
 ### 4. Start the application
 

@@ -83,3 +83,6 @@ dist
 
 # Local Netlify folder
 .netlify
+
+# Utility scripts
+git-cleanup.bat
