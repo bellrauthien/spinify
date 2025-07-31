@@ -120,16 +120,18 @@ app.get('/callback', async (req, res) => {
     spotifyApi.setAccessToken(data.body['access_token']);
     const userProfile = await spotifyApi.getMe();
     const userId = userProfile.body.id;
+    const displayName = userProfile.body.display_name || userProfile.body.id;
     
     // Store tokens
     userTokens[userId] = {
       accessToken: data.body['access_token'],
       refreshToken: data.body['refresh_token'],
-      expiresAt: Date.now() + (data.body['expires_in'] * 1000)
+      expiresAt: Date.now() + (data.body['expires_in'] * 1000),
+      displayName: displayName
     };
     
-    // Redirect to frontend with user ID
-    res.redirect(`http://localhost:3000/auth-success?userId=${userId}`);
+    // Redirect to frontend with user ID and display name
+    res.redirect(`http://localhost:3000/auth-success?userId=${userId}&displayName=${encodeURIComponent(displayName)}`);
   } catch (error) {
     console.error('Error during authorization code exchange:', error);
     res.redirect('http://localhost:3000/auth-error');
@@ -575,16 +577,18 @@ if (PORT !== 8888) {
       spotifyApi.setAccessToken(data.body['access_token']);
       const userProfile = await spotifyApi.getMe();
       const userId = userProfile.body.id;
+      const displayName = userProfile.body.display_name || userProfile.body.id;
       
       // Store tokens
       userTokens[userId] = {
         accessToken: data.body['access_token'],
         refreshToken: data.body['refresh_token'],
-        expiresAt: Date.now() + (data.body['expires_in'] * 1000)
+        expiresAt: Date.now() + (data.body['expires_in'] * 1000),
+        displayName: displayName
       };
       
-      // Redirect to frontend with user ID
-      res.redirect(`http://localhost:3000/auth-success?userId=${userId}`);
+      // Redirect to frontend with user ID and display name
+      res.redirect(`http://localhost:3000/auth-success?userId=${userId}&displayName=${encodeURIComponent(displayName)}`);
     } catch (error) {
       console.error('Error during authorization code exchange:', error);
       res.redirect('http://localhost:3000/auth-error');

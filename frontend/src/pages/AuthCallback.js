@@ -10,13 +10,19 @@ const AuthCallback = () => {
   const [error, setError] = useState('');
   
   useEffect(() => {
-    // Get userId from URL query params
+    // Get userId and displayName from URL query params
     const params = new URLSearchParams(location.search);
     const userId = params.get('userId');
+    const displayName = params.get('displayName');
     
     if (userId) {
-      // Store the userId in localStorage
+      // Store the userId and displayName in localStorage
       localStorage.setItem('spinify_spotify_user_id', userId);
+      
+      // Store display name if available
+      if (displayName) {
+        localStorage.setItem('spinify_user_display_name', displayName);
+      }
       
       // Redirect to home after successful authentication
       setTimeout(() => {
