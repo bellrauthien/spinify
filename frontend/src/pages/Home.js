@@ -1,0 +1,169 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+import axios from 'axios';
+
+const Home = ({ setJamSession, joinJamSession }) => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [jamCode, setJamCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Handle joining a jam session
+  const handleJoinJam = async (e) => {
+    e.preventDefault();
+    
+    if (!jamCode.trim()) {
+      setError(t('home.enterValidCode'));
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const response = await axios.post('http://localhost:5000/api/join-jam', { jamCode });
+      
+      if (response.data.success) {
+        setJamSession({
+          code: jamCode,
+          name: response.data.playlist.name
+        });
+        
+        joinJamSession(jamCode);
+        navigate('/playlist');
+      }
+    } catch (err) {
+      console.error('Error joining jam:', err);
+      setError(err.response?.data?.error || t('common.error'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <HomeContainer>
+      <JukeboxContainer className="jukebox-container">
+        <Title className="neon-text">{t('home.welcome')}</Title>
+        <Tagline>{t('home.tagline')}</Tagline>
+        
+        <RecordImage className="spinning-record">
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="45" fill="#111" stroke="#333" strokeWidth="2" />
+            <circle cx="50" cy="50" r="20" fill="#333" stroke="#444" strokeWidth="1" />
+            <circle cx="50" cy="50" r="5" fill="#555" stroke="#666" strokeWidth="1" />
+            <circle cx="50" cy="50" r="2" fill="#777" />
+            <path d="M50,5 L50,20 M50,80 L50,95 M5,50 L20,50 M80,50 L95,50" stroke="#444" strokeWidth="1" />
+          </svg>
+        </RecordImage>
+        
+        <Form onSubmit={handleJoinJam}>
+          <FormGroup>
+            <Label htmlFor="jamCode">{t('home.enterCode')}</Label>
+            <Input
+              id="jamCode"
+              type="text"
+              value={jamCode}
+              onChange={(e) => setJamCode(e.target.value)}
+              placeholder={t('home.jamCodePlaceholder')}
+              required
+            />
+          </FormGroup>
+          
+          {error && <ErrorMessage>{error}</ErrorMessage>}
+          
+          <Button type="submit" className="vintage-button" disabled={isLoading}>
+            {isLoading ? t('common.loading') : t('home.joinJam')}
+          </Button>
+        </Form>
+        
+        <ScanButton onClick={() => navigate('/scan')} className="vintage-button">
+          {t('home.scanQR')}
+        </ScanButton>
+      </JukeboxContainer>
+    </HomeContainer>
+  );
+};
+
+const HomeContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+`;
+
+const JukeboxContainer = styled.div`
+  width: 100%;
+`;
+
+const Title = styled.h1`
+  font-family: ${props => props.theme.fonts.display};
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  text-align: center;
+`;
+
+const Tagline = styled.p`
+  color: ${props => props.theme.colors.accent};
+  font-size: 1.1rem;
+  margin-bottom: 30px;
+  text-align: center;
+`;
+
+const RecordImage = styled.div`
+  margin: 20px auto;
+  width: 150px;
+  height: 150px;
+`;
+
+const Form = styled.form`
+  margin: 20px 0;
+`;
+
+const FormGroup = styled.div`
+  margin-bottom: 15px;
+`;
+
+const Label = styled.label`
+  color: ${props => props.theme.colors.text};
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 8px;
+`;
+
+const Input = styled.input`
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid ${props => props.theme.colors.primary};
+  border-radius: ${props => props.theme.borders.radius.medium};
+  color: ${props => props.theme.colors.text};
+  font-size: 1rem;
+  padding: 12px 15px;
+  width: 100%;
+  
+  &:focus {
+    border-color: ${props => props.theme.colors.accent};
+    outline: none;
+  }
+`;
+
+const Button = styled.button`
+  margin-top: 10px;
+  width: 100%;
+`;
+
+const ScanButton = styled.button`
+  margin-top: 15px;
+  width: 100%;
+`;
+
+const ErrorMessage = styled.p`
+  color: ${props => props.theme.colors.error};
+  font-size: 0.9rem;
+  margin: 10px 0;
+  text-align: center;
+`;
+
+export default Home;

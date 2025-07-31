@@ -1,0 +1,144 @@
+.App {
+  text-align: center;
+}
+
+/* Vintage Jukebox Styling */
+:root {
+  --primary-color: #ff6b6b;
+  --secondary-color: #4ecdc4;
+  --accent-color: #ffe66d;
+  --dark-color: #1a1a2e;
+  --light-color: #f7fff7;
+}
+
+/* Vintage Button Styles */
+.vintage-button {
+  background: linear-gradient(145deg, #ff8a8a, #ff4d4d);
+  border: 3px solid #ff3333;
+  border-radius: 10px;
+  box-shadow: 0 4px 0 #cc0000, 0 8px 10px rgba(0, 0, 0, 0.3);
+  color: white;
+  cursor: pointer;
+  font-family: 'Audiowide', cursive;
+  font-size: 1.2rem;
+  padding: 12px 24px;
+  position: relative;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.vintage-button:hover {
+  background: linear-gradient(145deg, #ff9e9e, #ff6666);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #cc0000, 0 10px 15px rgba(0, 0, 0, 0.3);
+}
+
+.vintage-button:active {
+  background: linear-gradient(145deg, #ff6666, #ff3333);
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #cc0000, 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Jukebox Container */
+.jukebox-container {
+  background: linear-gradient(145deg, #2a2a40, #1a1a2e);
+  border: 8px solid #333355;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  margin: 20px auto;
+  max-width: 480px;
+  padding: 20px;
+  position: relative;
+}
+
+.jukebox-container::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  border: 2px solid #4a4a6a;
+  border-radius: 25px;
+  z-index: -1;
+}
+
+/* Neon Text Effect */
+.neon-text {
+  color: #fff;
+  text-shadow:
+    0 0 5px #fff,
+    0 0 10px #fff,
+    0 0 20px var(--primary-color),
+    0 0 30px var(--primary-color),
+    0 0 40px var(--primary-color);
+  animation: neon-flicker 2s infinite alternate;
+}
+
+@keyframes neon-flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    text-shadow:
+      0 0 5px #fff,
+      0 0 10px #fff,
+      0 0 20px var(--primary-color),
+      0 0 30px var(--primary-color),
+      0 0 40px var(--primary-color);
+  }
+  20%, 24%, 55% {
+    text-shadow: none;
+  }
+}
+
+/* Record Spinning Animation */
+.spinning-record {
+  animation: spin 3s linear infinite;
+  border-radius: 50%;
+  display: inline-block;
+  height: 100px;
+  width: 100px;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Mobile Device Simulation */
+@media (min-width: 768px) {
+  .mobile-frame {
+    background: #000;
+    border-radius: 36px;
+    box-shadow: 0 0 0 2px #333, 0 0 0 8px #111, 0 20px 40px rgba(0, 0, 0, 0.8);
+    margin: 40px auto;
+    max-width: 375px;
+    padding: 20px 10px;
+    position: relative;
+  }
+  
+  .mobile-frame::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 20px;
+    background: #000;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+  }
+  
+  .mobile-screen {
+    background: #121212;
+    border-radius: 24px;
+    height: 667px;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+  }
+}
