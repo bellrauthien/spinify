@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import axios from 'axios';
 
-const AddSongs = ({ jamSession, userId, setPlaylist }) => {
+const AddSongs = ({ jamSession, userId, spotifyUserId, setPlaylist }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,7 +32,16 @@ const AddSongs = ({ jamSession, userId, setPlaylist }) => {
     setError('');
     
     try {
-      const response = await axios.get(`http://localhost:5000/api/search?query=${encodeURIComponent(searchQuery)}`);
+      // Include Spotify user ID if available
+      const queryParams = new URLSearchParams({
+        query: searchQuery
+      });
+      
+      if (spotifyUserId) {
+        queryParams.append('userId', spotifyUserId);
+      }
+      
+      const response = await axios.get(`http://localhost:5000/api/search?${queryParams}`);
       setSearchResults(response.data.results || []);
     } catch (err) {
       console.error('Search error:', err);
@@ -51,10 +60,13 @@ const AddSongs = ({ jamSession, userId, setPlaylist }) => {
     setSuccessMessage('');
     
     try {
+      // Use Spotify user ID if available, otherwise use app user ID
+      const effectiveUserId = spotifyUserId || userId;
+      
       const response = await axios.post('http://localhost:5000/api/add-song', {
         jamCode: jamSession.code,
         songId: song.id,
-        userId,
+        userId: effectiveUserId,
         songDetails: {
           name: song.name,
           artist: song.artist,
@@ -77,6 +89,9 @@ const AddSongs = ({ jamSession, userId, setPlaylist }) => {
       
       if (err.response?.status === 402) {
         setPaymentRequired(true);
+      } else if (err.response?.status === 401) {
+        // Authentication required
+        setError(t('auth.requiredToAddSongs'));
       } else {
         setError(err.response?.data?.error || t('common.error'));
       }

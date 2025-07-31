@@ -29,38 +29,189 @@ const spotifyApi = new SpotifyWebApi({
   redirectUri: process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/callback'
 });
 
+// Store user tokens
+const userTokens = {};
+
+// Helper function to refresh Spotify access token using client credentials
+async function getClientCredentialsToken() {
+  try {
+    const data = await spotifyApi.clientCredentialsGrant();
+    console.log('Client credentials token refreshed');
+    return data.body['access_token'];
+  } catch (error) {
+    console.error('Error getting Spotify client credentials token:', error);
+    throw error;
+  }
+}
+
+// Helper function to get a user's access token or refresh it if expired
+async function getUserAccessToken(userId) {
+  if (!userTokens[userId]) {
+    return null; // User not authenticated
+  }
+  
+  // Check if token is expired (subtract 60 seconds to be safe)
+  if (Date.now() > userTokens[userId].expiresAt - 60000) {
+    try {
+      // Set the refresh token and try to refresh the access token
+      spotifyApi.setRefreshToken(userTokens[userId].refreshToken);
+      const data = await spotifyApi.refreshAccessToken();
+      
+      // Update stored tokens
+      userTokens[userId] = {
+        accessToken: data.body['access_token'],
+        refreshToken: userTokens[userId].refreshToken, // Keep the refresh token
+        expiresAt: Date.now() + (data.body['expires_in'] * 1000)
+      };
+      
+      console.log('User access token refreshed for', userId);
+    } catch (error) {
+      console.error('Error refreshing user access token:', error);
+      delete userTokens[userId]; // Clear invalid tokens
+      return null;
+    }
+  }
+  
+  return userTokens[userId].accessToken;
+}
+
 // Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Spotify Auth Routes
+
+// Login with Spotify
+app.get('/api/auth/spotify', (req, res) => {
+  const scopes = [
+    'user-read-private',
+    'user-read-email',
+    'playlist-read-private',
+    'playlist-read-collaborative',
+    'playlist-modify-public',
+    'playlist-modify-private'
+  ];
+  
+  const state = Math.random().toString(36).substring(2, 15);
+  
+  // Generate authorization URL
+  const authorizeURL = spotifyApi.createAuthorizeURL(scopes, state);
+  
+  res.json({ url: authorizeURL });
+});
+
+// Callback from Spotify auth
+app.get('/api/auth/callback', async (req, res) => {
+  const { code, state } = req.query;
+  
+  if (!code) {
+    return res.status(400).json({ error: 'Authorization code is required' });
+  }
+  
+  try {
+    // Exchange code for access token
+    const data = await spotifyApi.authorizationCodeGrant(code);
+    
+    // Get user profile to use as ID
+    spotifyApi.setAccessToken(data.body['access_token']);
+    const userProfile = await spotifyApi.getMe();
+    const userId = userProfile.body.id;
+    
+    // Store tokens
+    userTokens[userId] = {
+      accessToken: data.body['access_token'],
+      refreshToken: data.body['refresh_token'],
+      expiresAt: Date.now() + (data.body['expires_in'] * 1000)
+    };
+    
+    // Redirect to frontend with user ID
+    res.redirect(`http://localhost:3000/auth-success?userId=${userId}`);
+  } catch (error) {
+    console.error('Error during authorization code exchange:', error);
+    res.redirect('http://localhost:3000/auth-error');
+  }
+});
+
+// Check if user is authenticated
+app.get('/api/auth/status', (req, res) => {
+  const { userId } = req.query;
+  
+  if (!userId || !userTokens[userId]) {
+    return res.json({ authenticated: false });
+  }
+  
+  res.json({ authenticated: true });
+});
+
 // Join a Spotify Jam session
 app.post('/api/join-jam', async (req, res) => {
-  const { jamCode } = req.body;
+  const { jamCode, userId } = req.body;
   
   if (!jamCode) {
     return res.status(400).json({ error: 'Jam code is required' });
   }
   
   try {
-    // This is a mock implementation - in a real app, you would use Spotify API
-    // to join an actual Jam session
+    // Try to use user token if available, otherwise fall back to client credentials
+    let accessToken;
+    if (userId && userTokens[userId]) {
+      accessToken = await getUserAccessToken(userId);
+    } else {
+      accessToken = await getClientCredentialsToken();
+    }
     
-    // Create a mock playlist if it doesn't exist
-    if (!playlists[jamCode]) {
-      playlists[jamCode] = {
-        name: `Jam Session ${jamCode}`,
-        songs: [
-          { id: '1', name: 'Sample Song 1', artist: 'Artist 1', albumCover: 'https://via.placeholder.com/300' },
-          { id: '2', name: 'Sample Song 2', artist: 'Artist 2', albumCover: 'https://via.placeholder.com/300' }
-        ]
+    spotifyApi.setAccessToken(accessToken);
+    
+    // Spotify's Jam feature doesn't have public API endpoints yet
+    // We'll use a combination of available endpoints to simulate the functionality
+    // For now, we'll treat the jamCode as a playlist ID or a collaborative session identifier
+    let jamSession;
+    
+    try {
+      // Try to get a playlist with the provided ID
+      // If jamCode is a Spotify URI or URL, extract just the ID part
+      const playlistId = jamCode.includes(':') ? jamCode.split(':').pop() : 
+                         jamCode.includes('/') ? jamCode.split('/').pop() : jamCode;
+      
+      const playlistData = await spotifyApi.getPlaylist(playlistId);
+      
+      // Convert Spotify playlist to our app's format
+      const tracks = playlistData.body.tracks.items.map(item => ({
+        id: item.track.id,
+        name: item.track.name,
+        artist: item.track.artists.map(artist => artist.name).join(', '),
+        albumCover: item.track.album.images[0]?.url || 'https://via.placeholder.com/300'
+      }));
+      
+      jamSession = {
+        name: playlistData.body.name,
+        songs: tracks
       };
+      
+      // Cache the playlist
+      playlists[jamCode] = jamSession;
+    } catch (spotifyError) {
+      console.log('Could not find Spotify Jam, using mock data:', spotifyError);
+      
+      // Fall back to mock data if Spotify API doesn't have the jam or endpoint isn't available
+      if (!playlists[jamCode]) {
+        playlists[jamCode] = {
+          name: `Jam Session ${jamCode}`,
+          songs: [
+            { id: '1', name: 'Sample Song 1', artist: 'Artist 1', albumCover: 'https://via.placeholder.com/300' },
+            { id: '2', name: 'Sample Song 2', artist: 'Artist 2', albumCover: 'https://via.placeholder.com/300' }
+          ]
+        };
+      }
+      
+      jamSession = playlists[jamCode];
     }
     
     res.json({ 
       success: true, 
       message: 'Joined jam session',
-      playlist: playlists[jamCode]
+      playlist: jamSession
     });
     
     // Notify all clients about the join
@@ -96,38 +247,91 @@ app.post('/api/add-song', async (req, res) => {
       });
     }
     
-    // Add song to playlist
-    if (playlists[jamCode]) {
-      playlists[jamCode].songs.push({
-        id: songId,
-        name: songDetails.name,
-        artist: songDetails.artist,
-        albumCover: songDetails.albumCover || 'https://via.placeholder.com/300'
-      });
+    // Try to add song to Spotify playlist
+    try {
+      // Get user access token if available, otherwise use client credentials
+      let accessToken;
+      let isUserAuthenticated = false;
       
-      // Increment user song count
-      userCount.count++;
-      
-      // Reset paid status after 3 more songs
-      if (userCount.count % 3 === 0) {
-        userCount.paid = false;
+      if (userTokens[userId]) {
+        accessToken = await getUserAccessToken(userId);
+        isUserAuthenticated = true;
+      } else {
+        accessToken = await getClientCredentialsToken();
       }
       
-      // Notify all clients about the new song
-      io.emit('playlist-updated', { 
-        jamCode, 
-        playlist: playlists[jamCode] 
-      });
+      if (!accessToken) {
+        return res.status(401).json({ 
+          error: 'Authentication required',
+          message: 'Please login with Spotify to add songs to playlists'
+        });
+      }
       
-      res.json({ 
-        success: true, 
-        message: 'Song added to playlist',
-        remainingFreeSongs: userCount.count < 3 ? 3 - userCount.count : 0,
-        playlist: playlists[jamCode]
-      });
-    } else {
-      res.status(404).json({ error: 'Jam session not found' });
+      spotifyApi.setAccessToken(accessToken);
+      
+      // Extract playlist ID if jamCode is a Spotify URI or URL
+      const playlistId = jamCode.includes(':') ? jamCode.split(':').pop() : 
+                         jamCode.includes('/') ? jamCode.split('/').pop() : jamCode;
+      
+      // Add track to playlist
+      // Note: This requires write permission which may not be available with client credentials
+      // In a production app, you would use authorization code flow with proper scopes
+      await spotifyApi.addTracksToPlaylist(playlistId, [`spotify:track:${songId}`]);
+      
+      // Get updated playlist
+      const playlistData = await spotifyApi.getPlaylist(playlistId);
+      
+      // Convert to our format
+      const tracks = playlistData.body.tracks.items.map(item => ({
+        id: item.track.id,
+        name: item.track.name,
+        artist: item.track.artists.map(artist => artist.name).join(', '),
+        albumCover: item.track.album.images[0]?.url || 'https://via.placeholder.com/300'
+      }));
+      
+      const updatedJam = {
+        name: playlistData.body.name,
+        songs: tracks
+      };
+      
+      // Update local cache
+      playlists[jamCode] = updatedJam;
+    } catch (spotifyError) {
+      console.log('Could not add song to Spotify Jam, using mock data:', spotifyError);
+      
+      // Fall back to mock data
+      if (playlists[jamCode]) {
+        playlists[jamCode].songs.push({
+          id: songId,
+          name: songDetails.name,
+          artist: songDetails.artist,
+          albumCover: songDetails.albumCover || 'https://via.placeholder.com/300'
+        });
+      } else {
+        return res.status(404).json({ error: 'Jam session not found' });
+      }
     }
+    
+    // Increment user song count
+    userCount.count++;
+    
+    // Reset paid status after 3 more songs
+    if (userCount.count % 3 === 0) {
+      userCount.paid = false;
+    }
+    
+    // Notify all clients about the new song
+    io.emit('playlist-updated', { 
+      jamCode, 
+      playlist: playlists[jamCode] 
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Song added to playlist',
+      remainingFreeSongs: userCount.count < 3 ? 3 - userCount.count : 0,
+      playlist: playlists[jamCode]
+    });
   } catch (error) {
     console.error('Error adding song:', error);
     res.status(500).json({ error: 'Failed to add song' });
@@ -162,24 +366,64 @@ app.post('/api/process-payment', (req, res) => {
   }
 });
 
-// Search for songs (mock implementation)
-app.get('/api/search', (req, res) => {
-  const { query } = req.query;
+// Search for songs using Spotify API
+app.get('/api/search', async (req, res) => {
+  const { query, userId } = req.query;
   
   if (!query) {
     return res.status(400).json({ error: 'Search query is required' });
   }
   
-  // Mock search results
-  const results = [
-    { id: '101', name: `${query} Hit 1`, artist: 'Famous Artist', albumCover: 'https://via.placeholder.com/300' },
-    { id: '102', name: `${query} Classic`, artist: 'Legend Band', albumCover: 'https://via.placeholder.com/300' },
-    { id: '103', name: `${query} Remix`, artist: 'DJ Something', albumCover: 'https://via.placeholder.com/300' },
-    { id: '104', name: `${query} Live`, artist: 'Concert Band', albumCover: 'https://via.placeholder.com/300' },
-    { id: '105', name: `${query} Acoustic`, artist: 'Indie Artist', albumCover: 'https://via.placeholder.com/300' }
-  ];
-  
-  res.json({ results });
+  try {
+    // Try to use user token if available, otherwise fall back to client credentials
+    let accessToken;
+    if (userId && userTokens[userId]) {
+      accessToken = await getUserAccessToken(userId);
+    } else {
+      accessToken = await getClientCredentialsToken();
+    }
+    
+    spotifyApi.setAccessToken(accessToken);
+    
+    // Search tracks on Spotify
+    const searchResults = await spotifyApi.searchTracks(query, { limit: 5 });
+    
+    // Format results
+    if (searchResults.body && searchResults.body.tracks && searchResults.body.tracks.items) {
+      const results = searchResults.body.tracks.items.map(track => ({
+        id: track.id,
+        name: track.name,
+        artist: track.artists.map(artist => artist.name).join(', '),
+        albumCover: track.album.images[0]?.url || 'https://via.placeholder.com/300'
+      }));
+      
+      res.json({ results });
+    } else {
+      // Fall back to mock results if Spotify API fails
+      const mockResults = [
+        { id: '101', name: `${query} Hit 1`, artist: 'Famous Artist', albumCover: 'https://via.placeholder.com/300' },
+        { id: '102', name: `${query} Classic`, artist: 'Legend Band', albumCover: 'https://via.placeholder.com/300' },
+        { id: '103', name: `${query} Remix`, artist: 'DJ Something', albumCover: 'https://via.placeholder.com/300' },
+        { id: '104', name: `${query} Live`, artist: 'Concert Band', albumCover: 'https://via.placeholder.com/300' },
+        { id: '105', name: `${query} Acoustic`, artist: 'Indie Artist', albumCover: 'https://via.placeholder.com/300' }
+      ];
+      
+      res.json({ results: mockResults });
+    }
+  } catch (error) {
+    console.error('Error searching songs:', error);
+    
+    // Fall back to mock results if Spotify API fails
+    const mockResults = [
+      { id: '101', name: `${query} Hit 1`, artist: 'Famous Artist', albumCover: 'https://via.placeholder.com/300' },
+      { id: '102', name: `${query} Classic`, artist: 'Legend Band', albumCover: 'https://via.placeholder.com/300' },
+      { id: '103', name: `${query} Remix`, artist: 'DJ Something', albumCover: 'https://via.placeholder.com/300' },
+      { id: '104', name: `${query} Live`, artist: 'Concert Band', albumCover: 'https://via.placeholder.com/300' },
+      { id: '105', name: `${query} Acoustic`, artist: 'Indie Artist', albumCover: 'https://via.placeholder.com/300' }
+    ];
+    
+    res.json({ results: mockResults });
+  }
 });
 
 // Socket.io connection handling

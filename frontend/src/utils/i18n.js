@@ -17,6 +17,19 @@ const enTranslations = {
     search: 'Search',
     language: 'Language'
   },
+  auth: {
+    loginWithSpotify: 'Login with Spotify',
+    logout: 'Logout from Spotify',
+    connectWithSpotify: 'Connect with Spotify',
+    success: 'Authentication Successful',
+    successMessage: 'You have successfully connected your Spotify account',
+    error: 'Authentication Error',
+    errorMessage: 'There was an error connecting to Spotify',
+    errorInitiating: 'Error initiating Spotify login',
+    errorNoUserId: 'No user ID received from authentication',
+    redirecting: 'Redirecting to home page...',
+    requiredToAddSongs: 'Please login with Spotify to add songs to playlists'
+  },
   home: {
     welcome: 'Welcome to Spinify',
     tagline: 'Join a jam session and add your favorite songs',
@@ -82,6 +95,19 @@ const esTranslations = {
     search: 'Buscar',
     language: 'Idioma'
   },
+  auth: {
+    loginWithSpotify: 'Iniciar sesión con Spotify',
+    logout: 'Cerrar sesión de Spotify',
+    connectWithSpotify: 'Conectar con Spotify',
+    success: 'Autenticación Exitosa',
+    successMessage: 'Has conectado tu cuenta de Spotify correctamente',
+    error: 'Error de Autenticación',
+    errorMessage: 'Hubo un error al conectar con Spotify',
+    errorInitiating: 'Error al iniciar sesión con Spotify',
+    errorNoUserId: 'No se recibió ID de usuario de la autenticación',
+    redirecting: 'Redirigiendo a la página principal...',
+    requiredToAddSongs: 'Por favor, inicia sesión con Spotify para añadir canciones a las listas'
+  },
   home: {
     welcome: 'Bienvenido a Spinify',
     tagline: 'Únete a una sesión y añade tus canciones favoritas',
@@ -136,14 +162,15 @@ i18n
   .use(initReactI18next)
   .init({
     resources: {
-      en: enTranslations,
-      es: esTranslations
+      en: { translation: enTranslations },
+      es: { translation: esTranslations }
     },
     lng: localStorage.getItem('spinify_language') || 'en',
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false
-    }
+    },
+    debug: process.env.NODE_ENV === 'development'
   });
 
 export default i18n;

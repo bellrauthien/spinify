@@ -10,6 +10,8 @@ import ScanQR from './pages/ScanQR';
 import Playlist from './pages/Playlist';
 import AddSongs from './pages/AddSongs';
 import Payment from './pages/Payment';
+import AuthCallback from './pages/AuthCallback';
+import AuthError from './pages/AuthError';
 
 // Components
 import Header from './components/Header';
@@ -27,9 +29,11 @@ function App() {
   const [jamSession, setJamSession] = useState(null);
   const [playlist, setPlaylist] = useState([]);
   const [userId, setUserId] = useState(null);
+  const [spotifyUserId, setSpotifyUserId] = useState(null);
 
-  // Generate a unique user ID on first load
+  // Generate a unique user ID on first load and check for Spotify user ID
   useEffect(() => {
+    // Set app user ID
     const storedUserId = localStorage.getItem('spinify_user_id');
     if (storedUserId) {
       setUserId(storedUserId);
@@ -37,6 +41,12 @@ function App() {
       const newUserId = `user_${Math.random().toString(36).substr(2, 9)}`;
       localStorage.setItem('spinify_user_id', newUserId);
       setUserId(newUserId);
+    }
+    
+    // Check for Spotify user ID
+    const storedSpotifyUserId = localStorage.getItem('spinify_spotify_user_id');
+    if (storedSpotifyUserId) {
+      setSpotifyUserId(storedSpotifyUserId);
     }
   }, []);
 
@@ -59,6 +69,11 @@ function App() {
   const joinJamSession = (jamCode) => {
     socket.emit('join-room', jamCode);
   };
+  
+  // Handle Spotify login success
+  const handleSpotifyLoginSuccess = (spotifyId) => {
+    setSpotifyUserId(spotifyId);
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -67,23 +82,41 @@ function App() {
           <Header />
           <MainContent>
             <Routes>
-              <Route path="/" element={<Home setJamSession={setJamSession} joinJamSession={joinJamSession} />} />
-              <Route path="/scan" element={<ScanQR setJamSession={setJamSession} joinJamSession={joinJamSession} />} />
+              <Route path="/" element={
+                <Home 
+                  setJamSession={setJamSession} 
+                  joinJamSession={joinJamSession}
+                  spotifyUserId={spotifyUserId}
+                  onSpotifyLoginSuccess={handleSpotifyLoginSuccess}
+                />
+              } />
+              <Route path="/scan" element={
+                <ScanQR 
+                  setJamSession={setJamSession} 
+                  joinJamSession={joinJamSession}
+                  spotifyUserId={spotifyUserId}
+                />
+              } />
               <Route path="/playlist" element={
                 <Playlist 
                   jamSession={jamSession} 
                   playlist={playlist} 
-                  setPlaylist={setPlaylist} 
+                  setPlaylist={setPlaylist}
+                  spotifyUserId={spotifyUserId}
                 />
               } />
               <Route path="/add-songs" element={
                 <AddSongs 
                   jamSession={jamSession} 
                   userId={userId} 
+                  spotifyUserId={spotifyUserId}
                   setPlaylist={setPlaylist} 
                 />
               } />
               <Route path="/payment" element={<Payment userId={userId} />} />
+              <Route path="/callback" element={<AuthCallback />} />
+              <Route path="/auth-success" element={<AuthCallback />} />
+              <Route path="/auth-error" element={<AuthError />} />
             </Routes>
           </MainContent>
           <Footer />

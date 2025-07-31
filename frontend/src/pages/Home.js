@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import axios from 'axios';
+import SpotifyAuth from '../components/SpotifyAuth';
 
-const Home = ({ setJamSession, joinJamSession }) => {
+const Home = ({ setJamSession, joinJamSession, spotifyUserId, onSpotifyLoginSuccess }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [jamCode, setJamCode] = useState('');
@@ -24,7 +25,13 @@ const Home = ({ setJamSession, joinJamSession }) => {
     setError('');
     
     try {
-      const response = await axios.post('http://localhost:5000/api/join-jam', { jamCode });
+      // Include spotifyUserId if available
+      const payload = { 
+        jamCode,
+        userId: spotifyUserId || undefined
+      };
+      
+      const response = await axios.post('http://localhost:5000/api/join-jam', payload);
       
       if (response.data.success) {
         setJamSession({
@@ -82,6 +89,15 @@ const Home = ({ setJamSession, joinJamSession }) => {
         <ScanButton onClick={() => navigate('/scan')} className="vintage-button">
           {t('home.scanQR')}
         </ScanButton>
+        
+        <SpotifyAuthSection>
+          <AuthDivider>
+            <DividerLine />
+            <DividerText>{t('auth.connectWithSpotify')}</DividerText>
+            <DividerLine />
+          </AuthDivider>
+          <SpotifyAuth onLoginSuccess={onSpotifyLoginSuccess} />
+        </SpotifyAuthSection>
       </JukeboxContainer>
     </HomeContainer>
   );
@@ -157,6 +173,29 @@ const Button = styled.button`
 const ScanButton = styled.button`
   margin-top: 15px;
   width: 100%;
+`;
+
+const SpotifyAuthSection = styled.div`
+  margin-top: 30px;
+`;
+
+const AuthDivider = styled.div`
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+`;
+
+const DividerLine = styled.div`
+  flex: 1;
+  height: 1px;
+  background-color: ${props => props.theme.colors.text}40;
+`;
+
+const DividerText = styled.span`
+  color: ${props => props.theme.colors.text}80;
+  font-size: 0.9rem;
+  margin: 0 10px;
+  white-space: nowrap;
 `;
 
 const ErrorMessage = styled.p`
