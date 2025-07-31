@@ -26,7 +26,7 @@ const Playlist = ({ jamSession, playlist, setPlaylist }) => {
   return (
     <PlaylistContainer>
       <JukeboxContainer className="jukebox-container">
-        <Title>{jamSession.name || t('playlist.title')}</Title>
+        <Title className="neon-text">{jamSession.name || t('playlist.title')}</Title>
         
         {playlist && playlist.length > 0 ? (
           <>

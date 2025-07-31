@@ -196,12 +196,19 @@ app.post('/api/join-jam', async (req, res) => {
       
       // Fall back to mock data if Spotify API doesn't have the jam or endpoint isn't available
       if (!playlists[jamCode]) {
+        // Create a friendly jam name
+        const jamNames = [
+          "Leo's Vintage Vibes",
+          "Retro Groove Lounge",
+          "Neon Beats Jam",
+          "Classic Vinyl Mix",
+          "Funky Jukebox Party"
+        ];
+        const randomName = jamNames[Math.floor(Math.random() * jamNames.length)];
+        
         playlists[jamCode] = {
-          name: `Jam Session ${jamCode}`,
-          songs: [
-            { id: '1', name: 'Sample Song 1', artist: 'Artist 1', albumCover: 'https://via.placeholder.com/300' },
-            { id: '2', name: 'Sample Song 2', artist: 'Artist 2', albumCover: 'https://via.placeholder.com/300' }
-          ]
+          name: randomName,
+          songs: []
         };
       }
       
@@ -299,38 +306,53 @@ app.post('/api/add-song', async (req, res) => {
     } catch (spotifyError) {
       console.log('Could not add song to Spotify Jam, using mock data:', spotifyError);
       
-      // Fall back to mock data
-      if (playlists[jamCode]) {
-        playlists[jamCode].songs.push({
-          id: songId,
-          name: songDetails.name,
-          artist: songDetails.artist,
-          albumCover: songDetails.albumCover || 'https://via.placeholder.com/300'
-        });
-      } else {
-        return res.status(404).json({ error: 'Jam session not found' });
+      // If we're using a mock playlist, add the song to it
+      if (!playlists[jamCode]) {
+        // Create a friendly jam name
+        const jamNames = [
+          "Leo's Vintage Vibes",
+          "Retro Groove Lounge",
+          "Neon Beats Jam",
+          "Classic Vinyl Mix",
+          "Funky Jukebox Party"
+        ];
+        const randomName = jamNames[Math.floor(Math.random() * jamNames.length)];
+        
+        playlists[jamCode] = {
+          name: randomName,
+          songs: []
+        };
+      }
+      
+      // Add the song to the playlist
+      const newSong = {
+        id: songId,
+        ...songDetails
+      };
+      
+      // Check if the song already exists in the playlist
+      if (!playlists[jamCode].songs.some(song => song.id === songId)) {
+        playlists[jamCode].songs.push(newSong);
       }
     }
     
     // Increment user song count
-    userCount.count++;
+    userSongCounts[userId].count++;
     
-    // Reset paid status after 3 more songs
-    if (userCount.count % 3 === 0) {
-      userCount.paid = false;
-    }
-    
-    // Notify all clients about the new song
+    // Emit event to all connected clients
     io.emit('playlist-updated', { 
       jamCode, 
-      playlist: playlists[jamCode] 
+      playlist: playlists[jamCode]
     });
     
-    res.json({ 
-      success: true, 
+    // Log the updated playlist for debugging
+    console.log('Updated playlist:', jamCode, JSON.stringify(playlists[jamCode]));
+    
+    res.json({
+      success: true,
       message: 'Song added to playlist',
-      remainingFreeSongs: userCount.count < 3 ? 3 - userCount.count : 0,
-      playlist: playlists[jamCode]
+      playlist: playlists[jamCode],
+      remainingFreeSongs: Math.max(0, 3 - userSongCounts[userId].count)
     });
   } catch (error) {
     console.error('Error adding song:', error);

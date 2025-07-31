@@ -53,9 +53,6 @@ const Home = ({ setJamSession, joinJamSession, spotifyUserId, onSpotifyLoginSucc
   return (
     <HomeContainer>
       <JukeboxContainer className="jukebox-container">
-        <Title className="neon-text">{t('home.welcome')}</Title>
-        <Tagline>{t('home.tagline')}</Tagline>
-        
         <RecordImage className="spinning-record">
           <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
             <circle cx="50" cy="50" r="45" fill="#111" stroke="#333" strokeWidth="2" />
@@ -108,35 +105,43 @@ const HomeContainer = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 70vh;
+  min-height: 100%;
+  padding: 20px 20px 80px;
+  position: relative;
 `;
 
 const JukeboxContainer = styled.div`
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 20px;
   width: 100%;
+  height: 100%;
 `;
 
 const Title = styled.h1`
   font-family: ${props => props.theme.fonts.display};
-  font-size: 2.5rem;
-  margin-bottom: 10px;
+  font-size: 2.2rem;
+  margin-bottom: 5px;
   text-align: center;
 `;
 
 const Tagline = styled.p`
   color: ${props => props.theme.colors.accent};
-  font-size: 1.1rem;
-  margin-bottom: 30px;
+  font-size: 1rem;
+  margin-bottom: 10px;
   text-align: center;
 `;
 
 const RecordImage = styled.div`
-  margin: 20px auto;
-  width: 150px;
-  height: 150px;
+  margin: 20px 0;
+  width: 120px;
 `;
 
 const Form = styled.form`
-  margin: 20px 0;
+  margin-bottom: 15px;
+  width: 100%;
 `;
 
 const FormGroup = styled.div`
@@ -172,17 +177,19 @@ const Button = styled.button`
 
 const ScanButton = styled.button`
   margin-top: 15px;
+  margin-bottom: 15px;
   width: 100%;
 `;
 
 const SpotifyAuthSection = styled.div`
-  margin-top: 30px;
+  margin-top: 15px;
+  margin-bottom: 120px;
 `;
 
 const AuthDivider = styled.div`
   display: flex;
   align-items: center;
-  margin: 20px 0;
+  margin: 10px 0;
 `;
 
 const DividerLine = styled.div`
