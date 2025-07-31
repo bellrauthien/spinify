@@ -9,6 +9,7 @@ const Home = ({ setJamSession, joinJamSession, spotifyUserId, onSpotifyLoginSucc
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [jamCode, setJamCode] = useState('');
+  const [userName, setUserName] = useState(localStorage.getItem('spinify_user_name') || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,18 +26,28 @@ const Home = ({ setJamSession, joinJamSession, spotifyUserId, onSpotifyLoginSucc
     setError('');
     
     try {
-      // Include spotifyUserId if available
+      // Save user name to localStorage if provided
+      if (userName.trim()) {
+        localStorage.setItem('spinify_user_name', userName.trim());
+      }
+      
+      // Include spotifyUserId and userName if available
       const payload = { 
         jamCode,
-        userId: spotifyUserId || undefined
+        userId: spotifyUserId || `user_${Math.random().toString(36).substr(2, 9)}`,
+        userName: userName
       };
       
       const response = await axios.post('http://localhost:5000/api/join-jam', payload);
       
       if (response.data.success) {
+        // Include jam info with owner details
         setJamSession({
           code: jamCode,
-          name: response.data.playlist.name
+          name: response.data.playlist.name,
+          owner: response.data.jamInfo?.owner || "Leo",
+          users: response.data.jamInfo?.users || 1,
+          isOwner: response.data.jamInfo?.isOwner || false
         });
         
         joinJamSession(jamCode);
@@ -64,6 +75,17 @@ const Home = ({ setJamSession, joinJamSession, spotifyUserId, onSpotifyLoginSucc
         </RecordImage>
         
         <Form onSubmit={handleJoinJam}>
+          <FormGroup>
+            <Label htmlFor="userName">{t('home.yourName')}</Label>
+            <Input
+              id="userName"
+              type="text"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              placeholder="Enter your name"
+            />
+          </FormGroup>
+          
           <FormGroup>
             <Label htmlFor="jamCode">{t('home.enterCode')}</Label>
             <Input

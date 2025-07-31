@@ -18,9 +18,12 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
-// In-memory storage for playlists and user song counts
+// In-memory storage for playlists, user song counts, and jam session users
 const playlists = {};
 const userSongCounts = {};
+const jamSessions = {};
+const jamOwners = {};
+const jamOwnerNames = {};
 
 // Initialize Spotify API
 const spotifyApi = new SpotifyWebApi({
@@ -146,10 +149,34 @@ app.get('/api/auth/status', (req, res) => {
 
 // Join a Spotify Jam session
 app.post('/api/join-jam', async (req, res) => {
-  const { jamCode, userId } = req.body;
+  const { jamCode, userId, userName } = req.body;
   
   if (!jamCode) {
     return res.status(400).json({ error: 'Jam code is required' });
+  }
+  
+  // Track the user joining this jam
+  if (!jamSessions[jamCode]) {
+    jamSessions[jamCode] = [];
+    
+    // If this is a new jam, set the current user as the owner
+    if (userId && !jamOwners[jamCode]) {
+      jamOwners[jamCode] = userId;
+      
+      // Store the owner's name if provided
+      if (userName && userName.trim()) {
+        jamOwnerNames[jamCode] = userName.trim();
+      } else {
+        // Default names if none provided
+        const defaultNames = ["Pedro", "Sofia", "Miguel", "Ana", "Carlos"];
+        jamOwnerNames[jamCode] = defaultNames[Math.floor(Math.random() * defaultNames.length)];
+      }
+    }
+  }
+  
+  // Add user to the jam if not already in it
+  if (userId && !jamSessions[jamCode].includes(userId)) {
+    jamSessions[jamCode].push(userId);
   }
   
   try {
@@ -196,18 +223,40 @@ app.post('/api/join-jam', async (req, res) => {
       
       // Fall back to mock data if Spotify API doesn't have the jam or endpoint isn't available
       if (!playlists[jamCode]) {
-        // Create a friendly jam name
-        const jamNames = [
-          "Leo's Vintage Vibes",
-          "Retro Groove Lounge",
-          "Neon Beats Jam",
-          "Classic Vinyl Mix",
-          "Funky Jukebox Party"
-        ];
-        const randomName = jamNames[Math.floor(Math.random() * jamNames.length)];
+        // Try to extract jam owner from the jam code or Spotify data
+        let jamOwner = "";
+        
+        try {
+          // First check if we have Spotify data about the creator
+          if (playlistData && playlistData.body && playlistData.body.owner) {
+            jamOwner = playlistData.body.owner.display_name || playlistData.body.owner.id;
+          } 
+          // If not, try to extract from jam code (some codes might be username-jamcode)
+          else if (jamCode.includes('-')) {
+            const parts = jamCode.split('-');
+            if (parts.length > 1) {
+              jamOwner = parts[0];
+            }
+          }
+        } catch (err) {
+          console.log('Could not extract jam owner:', err);
+        }
+        
+        // If we couldn't extract an owner, use a generic name
+        if (!jamOwner) {
+          const jamNames = [
+            "Spotify",
+            "Music",
+            "Party",
+            "Groove",
+            "Beats"
+          ];
+          jamOwner = jamNames[Math.floor(Math.random() * jamNames.length)];
+        }
         
         playlists[jamCode] = {
-          name: randomName,
+          name: `${jamOwner}'s Jam`,
+          owner: jamOwner,
           songs: []
         };
       }
@@ -215,14 +264,27 @@ app.post('/api/join-jam', async (req, res) => {
       jamSession = playlists[jamCode];
     }
     
+    // Add user count information
+    const usersInJam = jamSessions[jamCode] ? jamSessions[jamCode].length : 1;
+    const ownerName = jamOwners[jamCode] === userId ? "You" : jamOwnerNames[jamCode] || "DJ";
+    
     res.json({ 
       success: true, 
       message: 'Joined jam session',
-      playlist: jamSession
+      playlist: jamSession,
+      jamInfo: {
+        users: usersInJam,
+        owner: ownerName,
+        isOwner: jamOwners[jamCode] === userId
+      }
     });
     
-    // Notify all clients about the join
-    io.emit('user-joined', { jamCode });
+    // Notify all clients about the join with user count
+    io.emit('user-joined', { 
+      jamCode, 
+      usersCount: jamSessions[jamCode] ? jamSessions[jamCode].length : 1,
+      userId
+    });
     
   } catch (error) {
     console.error('Error joining jam:', error);
@@ -306,20 +368,36 @@ app.post('/api/add-song', async (req, res) => {
     } catch (spotifyError) {
       console.log('Could not add song to Spotify Jam, using mock data:', spotifyError);
       
-      // If we're using a mock playlist, add the song to it
+      // Fall back to mock data if Spotify API doesn't have the jam or endpoint isn't available
       if (!playlists[jamCode]) {
-        // Create a friendly jam name
-        const jamNames = [
-          "Leo's Vintage Vibes",
-          "Retro Groove Lounge",
-          "Neon Beats Jam",
-          "Classic Vinyl Mix",
-          "Funky Jukebox Party"
-        ];
-        const randomName = jamNames[Math.floor(Math.random() * jamNames.length)];
+        // Try to extract jam owner from the jam code if possible
+        let jamOwner = "";
+        try {
+          // Some jam codes might contain owner info in a format like "username-jamcode"
+          if (jamCode.includes('-')) {
+            const parts = jamCode.split('-');
+            if (parts.length > 1) {
+              jamOwner = parts[0];
+            }
+          }
+        } catch (err) {
+          console.log('Could not extract jam owner from code');
+        }
+        
+        // If we couldn't extract an owner, use a generic name
+        if (!jamOwner) {
+          const jamNames = [
+            "Spotify",
+            "Music",
+            "Party",
+            "Groove",
+            "Beats"
+          ];
+          jamOwner = jamNames[Math.floor(Math.random() * jamNames.length)];
+        }
         
         playlists[jamCode] = {
-          name: randomName,
+          name: `${jamOwner}'s Jam`,
           songs: []
         };
       }

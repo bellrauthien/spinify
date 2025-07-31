@@ -26,7 +26,11 @@ const Playlist = ({ jamSession, playlist, setPlaylist }) => {
   return (
     <PlaylistContainer>
       <JukeboxContainer className="jukebox-container">
-        <Title className="neon-text">{jamSession.name || t('playlist.title')}</Title>
+        <Title className="neon-text">{jamSession.owner ? `${jamSession.owner}'s Jam` : jamSession.name}</Title>
+        <JamInfo>
+          <span>{jamSession.users || 1} {jamSession.users === 1 ? 'person' : 'people'} jamming</span>
+          {jamSession.isOwner && <OwnerBadge>Your Jam</OwnerBadge>}
+        </JamInfo>
         
         {playlist && playlist.length > 0 ? (
           <>
@@ -97,9 +101,29 @@ const JukeboxContainer = styled.div`
 
 const Title = styled.h1`
   font-family: ${props => props.theme.fonts.display};
-  font-size: 2rem;
-  margin-bottom: 20px;
+  font-size: 1.8rem;
+  margin-bottom: 10px;
   text-align: center;
+`;
+
+const JamInfo = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  color: ${props => props.theme.colors.accent};
+  gap: 10px;
+`;
+
+const OwnerBadge = styled.span`
+  background: linear-gradient(135deg, #ffcc00, #ff00de);
+  color: #000;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
 `;
 
 const SectionTitle = styled.h2`
